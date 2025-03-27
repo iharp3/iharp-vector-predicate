@@ -46,7 +46,23 @@ class GeoJsonExecutor(QueryExecutor):
         #pp.pprint((geojson_data))
         return geojson_data
 
+    def _extract_coordinates(self, geojson_data):
+        coords = []
+        coords.extend(geojson_data["coordinates"])
+        return coords
+    
+    def _create_boudning_box(self, coordinates):
+        longs = []
+        lats = []
+        for coord in coordinates:
+            longs.append(coord[0])
+            lats.append(coord[1])
+        return min(longs), min(lats), max(longs), max(lats)
+    
     def execute(self):
         geojson_data = self._load_geojson()
-        return geojson_data
+        geometry = geojson_data["features"][0]["geometry"]
+        coords = self._extract_coordinates(geometry)
+        min_lon, min_lat, max_lon, max_lat = self._create_boudning_box(coords[0])
+        return [min_lon, min_lat, max_lon, max_lat]
         
