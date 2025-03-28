@@ -5,10 +5,11 @@ import pandas as pd
 import xarray as xr
 import geojson
 import pprint as pp
+import shapley.geometry
 
 from query_executor import QueryExecutor
-# from utils.const import time_resolution_to_freq
-# from query_executor_get_raster import GetRasterExecutor
+from utils.const import time_resolution_to_freq
+from query_executor_get_raster import GetRasterExecutor
 
 class GeoJsonExecutor(QueryExecutor):
     def __init__(
@@ -16,14 +17,14 @@ class GeoJsonExecutor(QueryExecutor):
         variable: str,
         start_datetime: str,
         end_datetime: str,
-        min_lat: float,
-        max_lat: float, 
-        min_lon: float,
-        max_lon: float,
         temporal_resolution: str,
         spatial_resolution: float,
         aggregation: str,
         geojson_file: str,
+        min_lat: float = None,
+        max_lat: float = None,
+        min_lon: float = None,
+        max_lon: float = None,
     ):
         super().__init__(
             variable,
@@ -36,7 +37,6 @@ class GeoJsonExecutor(QueryExecutor):
             temporal_resolution,
             spatial_resolution,
             aggregation,
-            geojson_file,
         )
         self.geojson_file = geojson_file
 
@@ -59,10 +59,27 @@ class GeoJsonExecutor(QueryExecutor):
             lats.append(coord[1])
         return min(longs), min(lats), max(longs), max(lats)
     
+    # def _mask_raster_data(self, raster):
+    #     longs = raster["longitude"]
+    #     lats = raster["latitude"]
+    
     def execute(self):
         geojson_data = self._load_geojson()
         geometry = geojson_data["features"][0]["geometry"]
         coords = self._extract_coordinates(geometry)
         min_lon, min_lat, max_lon, max_lat = self._create_boudning_box(coords[0])
-        return [min_lon, min_lat, max_lon, max_lat]
+        print(self.aggregation)
+        raster = GetRasterExecutor(
+            variable=self.variable,
+            start_datetime=self.start_datetime,
+            end_datetime=self.end_datetime,
+            min_lat=min_lat,
+            max_lat=max_lat,
+            min_lon=min_lon,
+            max_lon=max_lon,
+            temporal_resolution=self.temporal_resolution,
+            spatial_resolution=self.spatial_resolution,
+            aggregation=self.aggregation
+        )
+        return raster.execute()
         
