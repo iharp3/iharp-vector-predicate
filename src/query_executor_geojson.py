@@ -3,9 +3,11 @@ import math
 import cdsapi
 import pandas as pd
 import xarray as xr
+import geopandas as gpd
 import geojson
 import pprint as pp
-import shapley.geometry
+import numpy as np
+import shapely.geometry
 
 from query_executor import QueryExecutor
 from utils.const import time_resolution_to_freq
@@ -43,8 +45,11 @@ class GeoJsonExecutor(QueryExecutor):
     def _load_geojson(self):
         with open(self.geojson_file, 'r') as file:
             geojson_data = geojson.load(file)
+        with open(self.geojson_file, 'r') as file:
+            gdf = gpd.read_file(file)
+
         #pp.pprint((geojson_data))
-        return geojson_data
+        return geojson_data, gdf
 
     def _extract_coordinates(self, geojson_data):
         coords = []
@@ -59,16 +64,32 @@ class GeoJsonExecutor(QueryExecutor):
             lats.append(coord[1])
         return min(longs), min(lats), max(longs), max(lats)
     
-    # def _mask_raster_data(self, raster):
-    #     longs = raster["longitude"]
-    #     lats = raster["latitude"]
+    def _mask_raster_data(self, raster, polygon):
+        lons = raster["longitude"].values
+        lats = raster["latitude"].values
+        mesh_lons, mesh_lats = np.meshgrid(lons, lats) # maybe add indexing='ij'
+        # points = []
+        # for lon,lat in zip(mesh_lons, mesh_lats):
+        #     points.append(shapely.geometry.Point(lon, lat))
+        points = np.vstack((mesh_lons.ravel(), mesh_lats.ravel())).T
+
+        mask = []
+        for lon, lat in points:
+            point = shapely.geometry.Point(lon, lat)
+            in_polygon = polygon.contains(point)
+            mask.append(in_polygon)
+        
+        mask = np.array(mask)
+        mask = mask.reshape(mesh_lons.shape)
+        masked_raster = raster.where(mask)
+        return masked_raster
     
     def execute(self):
-        geojson_data = self._load_geojson()
+        geojson_data, gdf = self._load_geojson()
+        polygon = gdf.geometry.iloc[0]
         geometry = geojson_data["features"][0]["geometry"]
         coords = self._extract_coordinates(geometry)
         min_lon, min_lat, max_lon, max_lat = self._create_boudning_box(coords[0])
-        print(self.aggregation)
         raster = GetRasterExecutor(
             variable=self.variable,
             start_datetime=self.start_datetime,
@@ -81,5 +102,6 @@ class GeoJsonExecutor(QueryExecutor):
             spatial_resolution=self.spatial_resolution,
             aggregation=self.aggregation
         )
-        return raster.execute()
+        
+        return self._mask_raster_data(raster.execute(), polygon)
         
