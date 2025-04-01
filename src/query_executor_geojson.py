@@ -8,6 +8,9 @@ import geojson
 import pprint as pp
 import numpy as np
 import shapely.geometry
+from shapely.vectorized import contains
+import matplotlib.pyplot as plt
+from matplotlib.patches import Polygon as PlotPolygon
 
 from query_executor import QueryExecutor
 from utils.const import time_resolution_to_freq
@@ -73,16 +76,44 @@ class GeoJsonExecutor(QueryExecutor):
         #     points.append(shapely.geometry.Point(lon, lat))
         points = np.vstack((mesh_lons.ravel(), mesh_lats.ravel())).T
 
-        mask = []
-        for lon, lat in points:
-            point = shapely.geometry.Point(lon, lat)
-            in_polygon = polygon.contains(point)
-            mask.append(in_polygon)
+        # mask = []
+        # for lon, lat in points:
+        #     point = shapely.geometry.Point(lon, lat)
+        #     in_polygon = polygon.contains(point)
+        #     mask.append(in_polygon)
+
+        mask = contains(polygon, points[:, 0], points[:, 1])
         
         mask = np.array(mask)
         mask = mask.reshape(mesh_lons.shape)
-        masked_raster = raster.where(mask)
-        return masked_raster
+        masked_data = raster.where(mask, other=np.nan)
+        #raster["t2m"] = raster["t2m"].where(mask, other=np.nan)
+        return masked_data
+    
+    def visualize_mask(self, raster, masked_raster, polygon):
+
+        fig, axs = plt.subplots(1, 3, figsize=(18, 6))
+
+        plt1 = axs[0].pcolormesh(raster.longitude, raster.latitude, raster.t2m.isel(valid_time=0))
+        axs[0].set_title("Original Raster Data")
+        fig.colorbar(plt1, ax=axs[0])
+
+        masked_raster = self._mask_raster_data(raster, polygon)
+        plt2 = axs[1].pcolormesh(masked_raster.longitude, masked_raster.latitude, masked_raster.t2m.isel(valid_time=0), cmap="binary") 
+        axs[1].set_title("Mask")
+        fig.colorbar(plt2, ax=axs[1])
+
+        plt3 = axs[2].pcolormesh(masked_raster.longitude, masked_raster.latitude, masked_raster.t2m.isel(valid_time=0))
+        axs[2].set_title("Masked Data")
+        fig.colorbar(plt3, ax=axs[2])
+
+        for ax in axs:
+            x, y = polygon.exterior.xy
+            ax.plot(x, y, color="red")
+        plt.tight_layout()
+        plt.savefig("data_plot.png")
+        plt.show()
+        plt.close()
     
     def execute(self):
         geojson_data, gdf = self._load_geojson()
@@ -103,5 +134,14 @@ class GeoJsonExecutor(QueryExecutor):
             aggregation=self.aggregation
         )
         
-        return self._mask_raster_data(raster.execute(), polygon)
+        masked_data = self._mask_raster_data(raster.execute(), polygon)
+        print(masked_data)
+        self.visualize_mask(raster.execute(), masked_data, polygon)
+        print(raster)
+        print(masked_data)
+        if raster == masked_data:
+            print("Mask Failed")
+        else:
+            print("Mask Succeeded")
+        return masked_data
         
