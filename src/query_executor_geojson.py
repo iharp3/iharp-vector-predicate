@@ -47,12 +47,8 @@ class GeoJsonExecutor(QueryExecutor):
 
     def _load_geojson(self):
         with open(self.geojson_file, 'r') as file:
-            geojson_data = geojson.load(file)
-        with open(self.geojson_file, 'r') as file:
             gdf = gpd.read_file(file)
-
-        #pp.pprint((geojson_data))
-        return geojson_data, gdf
+        return gdf
 
     def _extract_coordinates(self, geojson_data):
         coords = []
@@ -71,9 +67,6 @@ class GeoJsonExecutor(QueryExecutor):
         lons = raster["longitude"].values
         lats = raster["latitude"].values
         mesh_lons, mesh_lats = np.meshgrid(lons, lats) # maybe add indexing='ij'
-        # points = []
-        # for lon,lat in zip(mesh_lons, mesh_lats):
-        #     points.append(shapely.geometry.Point(lon, lat))
         points = np.vstack((mesh_lons.ravel(), mesh_lats.ravel())).T
 
         # mask = []
@@ -85,12 +78,22 @@ class GeoJsonExecutor(QueryExecutor):
         mask = contains(polygon, points[:, 0], points[:, 1])
         
         mask = np.array(mask)
+        
         mask = mask.reshape(mesh_lons.shape)
-        masked_data = raster.where(mask, other=np.nan)
-        #raster["t2m"] = raster["t2m"].where(mask, other=np.nan)
+        mask_da = xr.DataArray(mask, dims=["latitude", "longitude"], coords={"latitude": lats, "longitude": lons})
+
+        masked_data = raster.where(mask_da, drop=False)
+        # print(f'raster count: {raster.count()}')
+        # print(raster.isel(valid_time=slice(0, 5)))
+        # print(f'masked Data: {masked_data.count()}')
+        # # original_valid = np.sum(~np.isnan(raster.t2m.values))
+        # # masked_valid = np.sum(~np.isnan(masked_data.t2m.values))
+        # # print(f"Original valid points: {original_valid}")
+        # # print(f"Masked valid points: {masked_valid}")
+        # #raster["t2m"] = raster["t2m"].where(mask, other=np.nan)
         return masked_data
     
-    def visualize_mask(self, raster, masked_raster, polygon):
+    def _visualize_mask(self, raster, masked_raster, polygon):
 
         fig, axs = plt.subplots(1, 3, figsize=(18, 6))
 
@@ -116,11 +119,16 @@ class GeoJsonExecutor(QueryExecutor):
         plt.close()
     
     def execute(self):
-        geojson_data, gdf = self._load_geojson()
+        gdf = self._load_geojson()
         polygon = gdf.geometry.iloc[0]
-        geometry = geojson_data["features"][0]["geometry"]
-        coords = self._extract_coordinates(geometry)
-        min_lon, min_lat, max_lon, max_lat = self._create_boudning_box(coords[0])
+        min_lon, min_lat, max_lon, max_lat = polygon.bounds
+        # print(f"Longitude range: {min_lon} to {max_lon}")
+        # print(f"Latitude range: {min_lat} to {max_lat}")
+        # geometry = geojson_data["features"][0]["geometry"]
+        # coords = self._extract_coordinates(geometry)
+        # min_lon, min_lat, max_lon, max_lat = self._create_boudning_box(coords[0])
+        print(f"Longitude range: {min_lon} to {max_lon}")
+        print(f"Latitude range: {min_lat} to {max_lat}")
         raster = GetRasterExecutor(
             variable=self.variable,
             start_datetime=self.start_datetime,
@@ -133,15 +141,30 @@ class GeoJsonExecutor(QueryExecutor):
             spatial_resolution=self.spatial_resolution,
             aggregation=self.aggregation
         )
-        
+        original_data = raster.execute()
         masked_data = self._mask_raster_data(raster.execute(), polygon)
-        print(masked_data)
-        self.visualize_mask(raster.execute(), masked_data, polygon)
-        print(raster)
-        print(masked_data)
-        if raster == masked_data:
-            print("Mask Failed")
+        # print(masked_data)
+        self._visualize_mask(raster.execute(), masked_data, polygon)
+        original_count = np.sum(~np.isnan(original_data.t2m.values))
+        masked_count = np.sum(~np.isnan(masked_data.t2m.values))
+        
+        if original_count == masked_count:
+            print("Mask Failed: Same number of valid points before and after masking")
         else:
-            print("Mask Succeeded")
+            print(f"Mask Succeeded: Reduced from {original_count} to {masked_count} points")
+        # masked_data = masked_data.dropna(dim="valid_time")
+        # fig, axs = plt.subplots(2, 2, figsize=(12, 10))
+        # axes_flat = axs.flatten()
+
+        # for i in range(4):
+        #     im = axes_flat[i].pcolormesh(masked_data.longitude, masked_data.latitude, masked_data["t2m"][i,:,:])
+        #     axes_flat[i].set_title(f'Slice {i}')
+            
+        # fig.colorbar(im, ax=axes_flat[0])
+        # fig.colorbar(im, ax=axes_flat[1])
+        # fig.colorbar(im, ax=axes_flat[2])
+        # fig.colorbar(im, ax=axes_flat[3])
+        # plt.tight_layout()
+        # plt.show()
         return masked_data
         
