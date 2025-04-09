@@ -1,9 +1,9 @@
 import pandas as pd
 import xarray as xr
 
-from query_executor import QueryExecutor
-from query_executor_timeseries import TimeseriesExecutor
-from utils.get_whole_period import get_whole_period_between, get_last_date_of_month, time_array_to_range
+from .query_executor import QueryExecutor
+from .query_executor_timeseries import TimeseriesExecutor
+from .utils.get_whole_period import get_whole_period_between, get_last_date_of_month, time_array_to_range
 
 
 class FindTimeExecutor(QueryExecutor):

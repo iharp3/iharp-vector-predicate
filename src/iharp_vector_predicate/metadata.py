@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from utils.const import get_lat_lon_range, time_resolution_to_freq
+from .utils.const import get_lat_lon_range, time_resolution_to_freq
 
 
 def gen_empty_xarray(

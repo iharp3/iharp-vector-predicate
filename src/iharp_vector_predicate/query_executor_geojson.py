@@ -1,20 +1,15 @@
 from datetime import datetime
-import math
-import cdsapi
 import pandas as pd
 import xarray as xr
 import geopandas as gpd
-import geojson
-import pprint as pp
 import numpy as np
-import shapely.geometry
 from shapely.vectorized import contains
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon as PlotPolygon
 
-from query_executor import QueryExecutor
-from utils.const import time_resolution_to_freq
-from query_executor_get_raster import GetRasterExecutor
+from .query_executor import QueryExecutor
+from .utils.const import time_resolution_to_freq
+from .query_executor_get_raster import GetRasterExecutor
 
 class GeoJsonExecutor(QueryExecutor):
     def __init__(

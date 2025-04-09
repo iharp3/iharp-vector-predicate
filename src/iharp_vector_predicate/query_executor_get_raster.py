@@ -4,8 +4,8 @@ import cdsapi
 import pandas as pd
 import xarray as xr
 
-from query_executor import QueryExecutor
-from utils.const import time_resolution_to_freq
+from .query_executor import QueryExecutor
+from .utils.const import time_resolution_to_freq
 
 
 class GetRasterExecutor(QueryExecutor):

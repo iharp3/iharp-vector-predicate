@@ -1,5 +1,5 @@
-from query_executor import *
-from query_executor_get_raster import GetRasterExecutor
+from .query_executor import *
+from .query_executor_get_raster import GetRasterExecutor
 
 
 class TimeseriesExecutor(QueryExecutor):

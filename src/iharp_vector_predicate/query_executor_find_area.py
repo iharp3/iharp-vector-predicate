@@ -1,5 +1,5 @@
-from query_executor import QueryExecutor
-from query_executor_heatmap import HeatmapExecutor
+from .query_executor import QueryExecutor
+from .query_executor_heatmap import HeatmapExecutor
 
 
 class FindAreaExecutor(QueryExecutor):

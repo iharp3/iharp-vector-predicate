@@ -1,9 +1,9 @@
 import numpy as np
 import xarray as xr
 
-from query_executor import QueryExecutor
-from query_executor_get_raster import GetRasterExecutor
-from utils.get_whole_period import (
+from .query_executor import QueryExecutor
+from .query_executor_get_raster import GetRasterExecutor
+from .utils.get_whole_period import (
     get_whole_ranges_between,
     get_total_hours_in_year,
     get_total_hours_in_month,
